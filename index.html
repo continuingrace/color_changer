@@ -802,8 +802,63 @@ function savePNG() {
 }
 function saveSVG() {
   if(!origSvg){showToast('colorToast','SVG 파일이 없습니다');return;}
+  // 현재 캔버스에서 색상 샘플링해서 SVG 색상 교체
+  var result = origSvg;
+  // SVG에서 색상값 추출
+  var svgColors = extractSVGColors(origSvg);
+  if (svgColors.length > 0 && cv.width > 0) {
+    // 캔버스에서 대응 색상 추출
+    var canvasColors = extractColors(getCurrentData(), svgColors.length * 2);
+    svgColors.forEach(function(origHex) {
+      // 캔버스에서 가장 가까운 색 찾기
+      var best = null, bestDist = 999;
+      canvasColors.forEach(function(ch) {
+        var d = colorDist(origHex, ch);
+        if (d < bestDist) { bestDist = d; best = ch; }
+      });
+      if (best && best !== origHex) {
+        // SVG 텍스트에서 해당 색상 교체 (fill, stroke, stop-color 등)
+        var escaped = origHex.replace(/[.*+?^${}()|[\]\\]/g,'\\function saveSVG() {
+  if(!origSvg){showToast('colorToast','SVG 파일이 없습니다');return;}
   var blob=new Blob([origSvg],{type:'image/svg+xml'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='asset.svg'; a.click();
+}');
+        result = result.replace(new RegExp(escaped,'gi'), best);
+        // 3자리 축약 hex도 처리
+        if (origHex.length===7) {
+          var sh='#'+origHex[1]+origHex[3]+origHex[5];
+          var se=sh.replace(/[.*+?^${}()|[\]\\]/g,'\\function saveSVG() {
+  if(!origSvg){showToast('colorToast','SVG 파일이 없습니다');return;}
+  var blob=new Blob([origSvg],{type:'image/svg+xml'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='asset.svg'; a.click();
+}');
+          result = result.replace(new RegExp(se,'gi'), best);
+        }
+      }
+    });
+  }
+  var blob=new Blob([result],{type:'image/svg+xml'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='asset-edited.svg'; a.click();
+  showToast('colorToast','SVG 저장 완료 (색상 반영됨)');
+}
+
+function extractSVGColors(svgText) {
+  var colors = [];
+  var matches = svgText.matchAll(/(?:fill|stroke|stop-color|color)\s*[=:]\s*["']?\s*(#[0-9a-fA-F]{3,6})/g);
+  for (var m of matches) {
+    var c = normalizeHex(m[1]);
+    if (c && !colors.includes(c) && c!=='#000000' && c!=='#ffffff' && c!=='#fff' && c!=='#000') {
+      colors.push(c);
+    }
+  }
+  return colors;
+}
+
+function normalizeHex(c) {
+  c = c.trim().toLowerCase();
+  if (c.length===4) c='#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];
+  if (/^#[0-9a-f]{6}$/.test(c)) return c;
+  return null;
 }
 </script>
 </body>
